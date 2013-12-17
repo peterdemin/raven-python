@@ -107,7 +107,7 @@ class Sentry(object):
         if not self.client:
             return
 
-        ignored_exc_type_list = current_app.config.get('RAVEN_IGNORE_EXCEPTIONS', [])
+        ignored_exc_type_list = self._app.config.get('RAVEN_IGNORE_EXCEPTIONS', [])
         exc = sys.exc_info()[1]
 
         if any((isinstance(exc, ignored_exc_type) for ignored_exc_type in ignored_exc_type_list)):
@@ -123,7 +123,7 @@ class Sentry(object):
         if not has_flask_login:
             return
 
-        if not hasattr(current_app, 'login_manager'):
+        if not hasattr(self._app, 'login_manager'):
             return
 
         try:
@@ -141,8 +141,8 @@ class Sentry(object):
                 'id': current_user.get_id(),
             }
 
-            if 'SENTRY_USER_ATTRS' in current_app.config:
-                for attr in current_app.config['SENTRY_USER_ATTRS']:
+            if 'SENTRY_USER_ATTRS' in self._app.config:
+                for attr in self._app.config['SENTRY_USER_ATTRS']:
                     if hasattr(current_user, attr):
                         user_info[attr] = getattr(current_user, attr)
         else:
@@ -175,6 +175,8 @@ class Sentry(object):
         self.client.user_context(self.get_user_info(request))
 
     def init_app(self, app, dsn=None):
+        self.app = app
+
         if dsn is not None:
             self.dsn = dsn
 
@@ -195,6 +197,10 @@ class Sentry(object):
         if not hasattr(app, 'extensions'):
             app.extensions = {}
         app.extensions['sentry'] = self
+
+    @property
+    def _app(self):
+        return current_app or self.app
 
     def captureException(self, *args, **kwargs):
         assert self.client, 'captureException called before application configured'
